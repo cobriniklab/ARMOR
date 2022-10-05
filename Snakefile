@@ -443,9 +443,113 @@ rule trimgalorePE:
 	shell:
 		"echo 'TrimGalore! version:\n' > {log}; trim_galore --version >> {log}; "
 		"trim_galore -q 20 --phred33 --length 20 -o {params.FASTQtrimmeddir} --path_to_cutadapt cutadapt "
+<<<<<<< HEAD
 		"--paired {input.fastq1} {input.fastq2}; "
 		
 		
+=======
+		"--paired {input.fastq1} {input.fastq2}"
+
+## ------------------------------------------------------------------------------------ ##
+## HISAT2 mapping
+## ------------------------------------------------------------------------------------ ##
+## Genome mapping with HISAT2
+rule HISAT2PE:
+	input:
+		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]) + ".gz",
+		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]) + ".gz"
+	output:
+		bam = temp(outputdir + "HISAT2/{sample}/{sample}_Aligned.out.bam")
+	threads:
+		config["ncores"]
+	log:
+		version = outputdir + "logs/HISAT2_{sample}.log",
+		stats = outputdir + "HISAT2" + "/HISAT2_{sample}_stats.txt"
+	benchmark:
+		outputdir + "benchmarks/HISAT2_{sample}.txt"
+	params:
+		HISAT2index = config["HISAT2index"],
+		HISAT2dir = outputdir + "HISAT2"
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"echo 'hisat2 --version:\n' > {log.version}; hisat2 --version >> {log.version}; "
+		"hisat2 --new-summary --pen-noncansplice 20 --threads {threads} --mp 1,0 --sp 3,1 -x {params.HISAT2index} -1 {input.fastq1} -2 {input.fastq2} 2> {log.stats} | samtools view -Sbo {output.bam}"
+
+# convert and sort sam files
+rule bamsort:
+	input:
+		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.out.bam"
+	output:
+		sorted_bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
+	log:
+		outputdir + "logs/samtools_sort_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/samtools_sort_{sample}.txt"
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"echo 'samtools version:\n' > {log}; samtools --version >> {log}; "
+		"samtools sort -O bam -o {output.sorted_bam} {input.bam}"
+
+## Index bam files
+rule bamindexhisat2:
+	input:
+		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
+	output:
+		outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai"
+	log:
+		outputdir + "logs/samtools_index_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/samtools_index_{sample}.txt"
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"echo 'samtools version:\n' > {log}; samtools --version >> {log}; "
+		"samtools index {input.bam}"
+
+## Convert gdna BAM files to bigWig
+rule bigwighisat2:
+	input:
+		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
+	output:
+		outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw"
+	params:
+	  prefix = outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out"
+		# HISAT2bigwigdir = outputdir + "HISAT2bigwig"
+	log:
+		outputdir + "logs/bigwig_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/bigwig_{sample}.txt"
+	conda:
+		"envs/environment.yaml"
+	shell:
+	  "megadepth {input.bam} --threads {threads} --bigwig --prefix {params.prefix}"
+
+## ------------------------------------------------------------------------------------ ##
+## Stringtie
+## ------------------------------------------------------------------------------------ ##
+# Transcript assembly using StringTie
+rule stringtie:
+	input:
+		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
+	output:
+		gtf = outputdir + "stringtie/{sample}/{sample}.gtf"
+	log:
+		outputdir + "logs/stringtie_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/stringtie_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		stringtiegtf = config["gtf"],
+		stringtiedir = outputdir + "stringtie"
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"echo 'stringtie version:\n' > {log}; stringtie --version >> {log}; "
+		"stringtie {input.bam} -G {params.stringtiegtf} -x MT -eB -o {output.gtf}"
+>>>>>>> 270a8379b4439f52fab5e013fc019bda77a25874
 
 ## ------------------------------------------------------------------------------------ ##
 ## DEXSeq
