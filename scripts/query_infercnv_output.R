@@ -8,73 +8,96 @@ library(Seurat)
 library(seuratTools)
 library(infercnv)
 
-normal_reference_mat <- readRDS("output/infercnv/reference_counts.rds")
+normal_reference_path <- "~/Homo_sapiens/infercnv/reference_mat.rds"
+
+normal_reference_mat <- readRDS(normal_reference_path)
 normal_seu <- Seurat::CreateSeuratObject(normal_reference_mat) %>%
-	RenameCells(new.names = paste0("normal_", str_replace(colnames(.), "-", ".")))
+  RenameCells(new.names = paste0("normal_", str_replace(colnames(.), "-", ".")))
 
-make_seus_from_cellranger <- function(sample_path, normal_seu){
-	# browser()
-	mypath <- fs::path(sample_path)
+make_seus_from_cellranger <- function(sample_path){
+  # browser()
+  seu_path <- path("output/seurat", paste0(path_file(sample_path), "_seu.rds"))
 
-	count_mat <- Seurat::Read10X(mypath)
+  print(seu_path)
 
-	seu <- Seurat::CreateSeuratObject(count_mat, assay = "gene") %>%
-		RenameCells(new.names = str_replace(colnames(.), "-", "."))
+  mypath <- fs::path(sample_path, "outs/filtered_feature_bc_matrix")
 
-	seu_path <- path("output/seurat", paste0(path_file(sample_path), "_seu.rds"))
+  count_mat <- Seurat::Read10X(mypath)
 
-	seu <- seuratTools::clustering_workflow(seu, resolution = c(0.2, 0.4))
+  seu <- Seurat::CreateSeuratObject(count_mat, assay = "gene") %>%
+    RenameCells(new.names = str_replace(colnames(.), "-", "."))
 
-	saveRDS(seu, seu_path)
+  seu <- seuratTools::clustering_workflow(seu, resolution = c(0.2, 0.4))
 
-	# seu_merged <- merge(seu, normal_seu)
-	#
-	# seu_merged <- infercnv::add_to_seurat(seu_merged, fs::path("output/infercnv", path_file(sample_path)))
-	#
-	# seu_w_cnv <- seu_merged[,!grepl("normal", colnames(seu_merged))]
-	#
-	# seu_w_cnv <- seuratTools::clustering_workflow(seu_w_cnv, resolution = c(0.2, 0.4))
-	#
-	# seu_cnv_path <- path("output/seurat", paste0(path_file(sample_path), "_cnv_seu.rds"))
-	#
-	# saveRDS(seu_w_cnv, seu_cnv_path)
-	#
-	# seu_cnv_path
+  saveRDS(seu, seu_path)
+  print(glue::glue("saved {seu_path}"))
+
+  return(seu)
+
+  # seu_merged <- merge(seu, normal_seu)
+  #
+  # seu_merged <- infercnv::add_to_seurat(seu_merged, fs::path("output/infercnv", path_file(sample_path)))
+  #
+  # seu_w_cnv <- seu_merged[,!grepl("normal", colnames(seu_merged))]
+  #
+  # seu_w_cnv <- seuratTools::clustering_workflow(seu_w_cnv, resolution = c(0.2, 0.4))
+  #
+  # seu_cnv_path <- path("output/seurat", paste0(path_file(sample_path), "_cnv_seu.rds"))
+  #
+  # saveRDS(seu_w_cnv, seu_cnv_path)
+  #
+  # seu_cnv_path
 
 }
 
-sample_paths <-
-	fs::dir_ls("data/", glob = "*SRR*")
+append_infercnv_to_seu <- function(sample_id, normal_seu){
+  browser()
+  seu_path <- path("output/seurat", paste0(path_file(sample_id), "_seu.rds"))
 
-make_seus_from_cellranger(sample_paths[[1]], normal_seu)
+  seu <- readRDS(seu_path)
 
-purrr::map(sample_paths, make_seus_from_cellranger, normal_seu)
+  seu_merged <- merge(seu, normal_seu)
 
-infercnv_obj <- readRDS("output/infercnv/SRR13884240/run.final.infercnv_obj")
+  seu_merged <- infercnv::add_to_seurat(seu_merged, fs::path("output/infercnv", path_file(sample_id)))
 
+  seu_w_cnv <- seu_merged[,!grepl("normal", colnames(seu_merged))]
 
-seu_40 <- readRDS("output/seurat/SRR13884240_seu.rds") %>%
-	RenameCells(new.names = str_replace(colnames(.), "-", "."))
+  seu_cnv_path <- path("output/seurat", paste0(path_file(sample_id), "_cnv_seu.rds"))
 
-normal_reference_mat <- readRDS("output/infercnv/reference_counts.rds")
-normal_seu <- Seurat::CreateSeuratObject(normal_reference_mat) %>%
-	RenameCells(new.names = paste0("normal_", str_replace(colnames(.), "-", ".")))
+  saveRDS(seu_w_cnv, seu_cnv_path)
 
-seu0 <- merge(seu_40, normal_seu)
+  seu_cnv_path
 
-seu_cells <- rownames(seu0@meta.data)
+}
 
-infercnv_cells <- colnames(infercnv_obj@expr.data)
+cellranger_paths <-
+  fs::dir_ls("output/cellranger/", glob = "*SRR*") %>%
+  purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
+# seus <- purrr::map(cellranger_paths, make_seus_from_cellranger, normal_seu)
 
-# debug(infercnv::add_to_seurat)
-seu1 <- infercnv::add_to_seurat(seu0, "output/infercnv/SRR13884240/")
+seu_paths <-
+  cellranger_paths <-
+  fs::dir_ls("output/seurat/", glob = "*SRR*") %>%
+  purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
-seu2 <- seu1[,!grepl("normal", colnames(seu1))]
+seus <- purrr::map(seu_paths, readRDS)
 
-seu2 <- seurat_preprocess(seu2) %>%
-	RunPCA() %>%
-	RunUMAP(dims = 1:30)
+marker_plots <- purrr::map(seus, ~plot_markers(.x, metavar = "gene_snn_res.0.2", marker_method = "presto", return_plotly = FALSE))
+
+umap_plots <- purrr::imap(seus, ~(DimPlot(.x, group.by = "gene_snn_res.0.2") + labs(title = .y)))
+
+library(patchwork)
+
+patchworks <- purrr::map2(umap_plots, marker_plots, ~.x + .y + plot_layout(widths = c(3,1)))
+
+pdf("results/patchworks.pdf", width = 10, height = 8)
+patchworks
+dev.off()
+
+# exclude code ------------------------------
+
+test0 <- append_infercnv_to_seu("SRR17960480", normal_seu)
 
 has_cnv_cols <- str_subset(colnames(seu2@meta.data), "has_cnv*")
 
