@@ -30,7 +30,7 @@ for (sample in samples) {
     dir.create(glue('{outdir}/pileup/{sample}'), showWarnings = FALSE)
 }
 
-## pileup
+# pileup ------------------------------
 
 cmds = c()
 
@@ -89,7 +89,8 @@ warning = function(w){
     stop('Pileup failed')
 })
 
-## VCF creation
+# VCF creation ------------------------------
+
 cat('Creating VCFs\n')
 vcfs = lapply(samples, function(sample){vcfR::read.vcfR(glue('{outdir}/pileup/{sample}/cellSNP.base.vcf'), verbose = F)})
 
@@ -125,7 +126,8 @@ warning = function(w){
     stop('Phasing failed')
 })
 
-## Generate allele count dataframe
+# Generate allele count dataframe ------------------------------
+
 cat('Generating allele count dataframes\n')
 
 if (genome == 'hg19') {

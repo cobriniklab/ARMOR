@@ -51,22 +51,30 @@ make_seus_from_cellranger <- function(sample_path){
 }
 
 append_infercnv_to_seu <- function(sample_id, normal_seu){
-  browser()
+  # browser()
   seu_path <- path("output/seurat", paste0(path_file(sample_id), "_seu.rds"))
 
   seu <- readRDS(seu_path)
 
   seu_merged <- merge(seu, normal_seu)
 
-  seu_merged <- infercnv::add_to_seurat(seu_merged, fs::path("output/infercnv", path_file(sample_id)))
+  infercnv_dir <- fs::path("output/infercnv", path_file(sample_id))
+
+  infercnv_obj <- readRDS(path(infercnv_dir, "/run.final.infercnv_obj"))
+
+  seu_merged <- seu_merged[,colnames(seu_merged) %in% colnames(infercnv_obj@expr.data)]
+
+  seu_merged <- infercnv::add_to_seurat(seu_merged, infercnv_dir)
 
   seu_w_cnv <- seu_merged[,!grepl("normal", colnames(seu_merged))]
 
   seu_cnv_path <- path("output/seurat", paste0(path_file(sample_id), "_cnv_seu.rds"))
 
+  seu_w_cnv <- seuratTools::clustering_workflow(seu_w_cnv, resolution = c(0.2, 0.4))
+
   saveRDS(seu_w_cnv, seu_cnv_path)
 
-  seu_cnv_path
+  return(seu_w_cnv)
 
 }
 
@@ -99,10 +107,3 @@ dev.off()
 
 test0 <- append_infercnv_to_seu("SRR17960480", normal_seu)
 
-has_cnv_cols <- str_subset(colnames(seu2@meta.data), "has_cnv*")
-
-cnv_plots <- purrr::map(has_cnv_cols, ~DimPlot(seu2, group.by = .x))
-
-pdf("~/tmp/cnvplots.pdf")
-cnv_plots
-dev.off()
