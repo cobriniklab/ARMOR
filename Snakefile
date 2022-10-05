@@ -1,6 +1,4 @@
 
-# send email
-# cat email.txt | msmtp --account=default <recipient@somedomain.com>
 
 ## Configuration file
 import os
@@ -31,15 +29,25 @@ config['salmonindex'] = sanitizefile(config['salmonindex'])
 config['metatxt'] = sanitizefile(config['metatxt'])
 config['metacsv'] = os.path.splitext(os.path.basename(config['metatxt']))[0]+'.csv'
 
-## Read metadata
-if not os.path.isfile(config["metatxt"]):
-  sys.exit("Metadata file " + config["metatxt"] + " does not exist.")
+# ## Read metadata
+# if not os.path.isfile(config["metatxt"]):
+#   sys.exit("Metadata file " + config["metatxt"] + " does not exist.")
 
+# import pandas as pd
+# samples = pd.read_csv(config["metatxt"], sep='\t')
+from pathlib import Path
+from pandas_path import path
 import pandas as pd
-samples = pd.read_csv(config["metatxt"], sep='\t')
 
-if not set(['names','type']).issubset(samples.columns):
-  sys.exit("Make sure 'names' and 'type' are columns in " + config["metatxt"])
+samples = pd.DataFrame((str(s) for s in Path('../data/FASTQ').rglob('*.fastq.gz')), columns = ["filepath"])
+samples['lane'] = samples['filepath'].path.name.str.replace("_R\d.*","", regex = True)
+samples['name'] = samples['lane'].str.replace("_S1_L00.*", "", regex = True)
+# samples['name'] = samples['lane'].str.replace("_[0-9].*", "", regex = True)
+
+samples['type'] = config['read_type']
+
+# if not set(['names','type']).issubset(samples.columns):
+#   sys.exit("Make sure 'names' and 'type' are columns in " + config["metatxt"])
 
 
 ## Sanitize provided input and output directories
@@ -57,6 +65,9 @@ def getpath(str):
 proj_dir = os.path.abspath(os.path.normpath(getpath(config["proj_dir"])))
 outputdir = os.path.abspath(getpath(config["output"])) + "/"
 FASTQdir = getpath(config["FASTQ"])
+datadir = os.path.abspath(os.path.normpath(getpath(config["proj_dir"]))) + "/data/"
+
+clones_filename = "bulk_clones_final.png"
 
 ## Define the conda environment for all rules using R
 if config["useCondaR"] == True:
@@ -68,41 +79,54 @@ else:
 Rbin = config["Rbin"]
 
 # The config.yaml files determines which steps should be performed
-def stringtie_output(wildcards):
-	input = []
-	input.extend(expand(outputdir + "stringtie/{sample}/{sample}.gtf", sample = samples.names[samples.type == 'PE'].values.tolist()))
-	return input
 	
 def dbtss_output(wildcards):
 	input = []
-	input.extend(expand(outputdir + "dbtss_coverage/{sample}_dbtss_coverage_over_10.txt", sample = samples.names[samples.type == 'PE'].values.tolist()))
+	input.extend(expand(outputdir + "dbtss_coverage/{sample}_dbtss_coverage_over_10.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
 	return input
 	
 def bigwigoutput(wildcards):
   input = []
-  input.extend(expand(outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw", sample = samples.names[samples.type == 'PE'].values.tolist()))
+  input.extend(expand(outputdir + "STAR/{sample}_Aligned.sortedByCoord.out.bw", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
 
 def dexseqoutput(wildcards):
   input = []
-  input.extend(expand(outputdir + "dexseq/{sample}.txt", sample = samples.names[samples.type == 'PE'].values.tolist()))
+  input.extend(expand(outputdir + "dexseq/{sample}.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
   
 def jbrowse_output(wildcards):
   input = []
   input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/trackList.json"))
   # input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/output"))
-  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bw", sample = samples.names[samples.type == 'PE'].values.tolist()))
-  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bam", sample = samples.names[samples.type == 'PE'].values.tolist()))
-  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bam.bai", sample = samples.names[samples.type == 'PE'].values.tolist()))
+  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bw", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bam", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  input.extend(expand("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/samples/{sample}.bam.bai", sample = samples.name[samples.type == 'PE'].values.tolist()))
   
   input.append("/var/www/html/jbrowse/" + os.path.basename(proj_dir) + "/trackList.json")
   return input
 
 # def kb_output(wildcards):
 # 	input = []
-# 	input.extend(expand(outputdir + "kb/unfiltered/adata.h5ad", sample = samples.names[samples.type == 'PE'].values.tolist()))
+# 	input.extend(expand(outputdir + "kb/unfiltered/adata.h5ad", sample = samples.name[samples.type == 'PE'].values.tolist()))
 # 	return input
+
+def cellranger_output(wildcards):
+  input = []
+  input.extend(expand(outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  return input
+
+def numbat_output(wildcards):
+  input = []
+  input.extend(expand(outputdir + "numbat/{sample}/done.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  # input.extend(expand(outputdir + "numbat/{sample}/{sample}_report.html", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  return input
+ 
+def infercnv_output(wildcards):
+  input = []
+  input.extend(expand(outputdir + "infercnv/{sample}/infercnv.png", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  return input
+ 
   
 	
 ## ------------------------------------------------------------------------------------ ##
@@ -111,18 +135,21 @@ def jbrowse_output(wildcards):
 ## Run all analyses
 rule all:
 	input:
-		outputdir + "MultiQC/multiqc_report.html",
-		bigwigoutput,
-		outputdir + "seurat/unfiltered_seu.rds",
-		# outputdir + "kallisto/adata.h5ad"
+		# outputdir + "MultiQC/multiqc_report.html",
+		cellranger_output,
+		numbat_output,
+		infercnv_output
+		# bigwigoutput,
+		# outputdir + "seurat/unfiltered_seu.rds",
+		# outputdir + "kallisto/adata.h5ad",
 		# stringtie_output,
 		# outputdir + "seurat/legacy_unfiltered_seu.rds",
-		# dexseqoutput
+		# dexseqoutput,
 		# dbtss_output,
-		# jbrowse_output
+		# jbrowse_output,
 		# loom_file = outputdir + "velocyto/" + os.path.basename(proj_dir) + ".loom",
 		# velocyto_seu = outputdir + "velocyto/" + "unfiltered_seu.rds",
-		# loom = outputdir + "scenic/unfiltered.loom"
+		# loom = outputdir + "scenic/unfiltered.loom",
 		# final_loom = outputdir + "scenic/unfiltered-final.loom"
 
 rule setup:
@@ -154,38 +181,38 @@ rule pkginstall:
 ## FastQC on original (untrimmed) files
 rule runfastqc:
 	input:
-		expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()),
-		expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()),
-		expand(outputdir + "FastQC/{sample}_fastqc.zip", sample = samples.names[samples.type == 'SE'].values.tolist())
+		expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()),
+		expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()),
+		expand(outputdir + "FastQC/{sample}_fastqc.zip", sample = samples.name[samples.type == 'SE'].values.tolist())
 
 ## Trimming and FastQC on trimmed files
 rule runtrimming:
 	input:
-		expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_val_1_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()),
-		expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_val_2_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()),
-		expand(outputdir + "FastQC/{sample}_trimmed_fastqc.zip", sample = samples.names[samples.type == 'SE'].values.tolist())
+		expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_val_1_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()),
+		expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_val_2_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()),
+		expand(outputdir + "FastQC/{sample}_trimmed_fastqc.zip", sample = samples.name[samples.type == 'SE'].values.tolist())
 
 ## Salmon quantification
 rule runsalmonquant:
 	input:
-		expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.names.values.tolist())
+		expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.name.values.tolist())
 
 ## STAR alignment
 rule runstar:
 	input:
-		expand(outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.names.values.tolist()),
-		expand(outputdir + "STARbigwig/{sample}_Aligned.sortedByCoord.out.bw", sample = samples.names.values.tolist())
+		expand(outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.name.values.tolist()),
+		expand(outputdir + "STAR/{sample}_Aligned.sortedByCoord.out.bw", sample = samples.name.values.tolist())
 		
 ## HISAT2 alignment
 rule runhisat2:
 	input:
-		expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.names.values.tolist()),
-		expand(outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw", sample = samples.names.values.tolist())
+		expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.name.values.tolist()),
+		expand(outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw", sample = samples.name.values.tolist())
 		
 ## DBTSS coverage
 rule rundbtss:
 	input:
-		expand(outputdir + "dbtss_coverage/{sample}/{sample}_dbtss_coverage.txt", sample = samples.names.values.tolist())
+		expand(outputdir + "dbtss_coverage/{sample}/{sample}_dbtss_coverage.txt", sample = samples.name.values.tolist())
 
 ## List all the packages that were used by the R analyses
 rule listpackages:
@@ -298,45 +325,7 @@ rule linkedtxome:
 ## ------------------------------------------------------------------------------------ ##
 ## Quality control
 ## ------------------------------------------------------------------------------------ ##
-## FastQC, original reads
-rule fastqc:
-	input:
-		fastq = FASTQdir + "{sample}." + str(config["fqsuffix"]) + ".gz"
-	output:
-		outputdir + "FastQC/{sample}_fastqc.zip"
-	params:
-		FastQC = outputdir + "FastQC"
-	log:
-		outputdir + "logs/fastqc_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/fastqc_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	threads:
-		config["ncores"]
-	shell:
-		"echo 'FastQC version:\n' > {log}; fastqc --version >> {log}; "
-		"fastqc -o {params.FastQC} -t {threads} {input.fastq}"
 
-## FastQC, trimmed reads
-rule fastqctrimmed:
-	input:
-		fastq = outputdir + "FASTQtrimmed/{sample}.fq.gz"
-	output:
-		outputdir + "FastQC/{sample}_fastqc.zip"
-	params:
-		FastQC = outputdir + "FastQC"
-	log:
-		outputdir + "logs/fastqc_trimmed_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/fastqc_trimmed_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	threads:
-		config["ncores"]
-	shell:
-		"echo 'FastQC version:\n' > {log}; fastqc --version >> {log}; "
-		"fastqc -o {params.FastQC} -t {threads} {input.fastq}"
 		
 ## Rseqc gene body coverage plot
 rule genebodycoverage:
@@ -362,24 +351,24 @@ rule genebodycoverage:
 # The config.yaml files determines which steps should be performed
 def multiqc_input(wildcards):
 	input = []
-	input.extend(expand(outputdir + "FastQC/{sample}_fastqc.zip", sample = samples.names[samples.type == 'SE'].values.tolist()))
-	input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()))
-	input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()))
+	input.extend(expand(outputdir + "FastQC/{sample}_fastqc.zip", sample = samples.name[samples.type == 'SE'].values.tolist()))
+	input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()))
+	input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()))
 	if config["run_genebodycoverage"]:
-	  input.extend(expand(outputdir + "rseqc/{sample}." + "geneBodyCoverage.txt", sample = samples.names[samples.type == 'PE'].values.tolist()))
+	  input.extend(expand(outputdir + "rseqc/{sample}." + "geneBodyCoverage.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
 	if config["run_SALMON"]:
-		input.extend(expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.names.values.tolist()))
+		input.extend(expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.name.values.tolist()))
 	if config["run_trimming"]:
-		input.extend(expand(outputdir + "FASTQtrimmed/{sample}_trimmed.fq.gz", sample = samples.names[samples.type == 'SE'].values.tolist()))
-		input.extend(expand(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz", sample = samples.names[samples.type == 'PE'].values.tolist()))
-		input.extend(expand(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz", sample = samples.names[samples.type == 'PE'].values.tolist()))
-		input.extend(expand(outputdir + "FastQC/{sample}_trimmed_fastqc.zip", sample = samples.names[samples.type == 'SE'].values.tolist()))
-		input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_val_1_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()))
-		input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_val_2_fastqc.zip", sample = samples.names[samples.type == 'PE'].values.tolist()))
+		# input.extend(expand(outputdir + "FASTQtrimmed/{sample}_trimmed.fq.gz", sample = samples.name[samples.type == 'SE'].values.tolist()))
+		input.extend(expand(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz", sample = samples.name[samples.type == 'PE'].values.tolist()))
+		input.extend(expand(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz", sample = samples.name[samples.type == 'PE'].values.tolist()))
+		input.extend(expand(outputdir + "FastQC/{sample}_trimmed_fastqc.zip", sample = samples.name[samples.type == 'SE'].values.tolist()))
+		input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext1"]) + "_val_1_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()))
+		input.extend(expand(outputdir + "FastQC/{sample}_" + str(config["fqext2"]) + "_val_2_fastqc.zip", sample = samples.name[samples.type == 'PE'].values.tolist()))
 	if config["run_STAR"]:
-		input.extend(expand(outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.names.values.tolist()))
+		input.extend(expand(outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.name.values.tolist()))
 	if config["run_HISAT2"]:
-		input.extend(expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.names.values.tolist()))
+		input.extend(expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai", sample = samples.name.values.tolist()))
 	return input
 
 ## Determine the input directories for MultiQC depending on the config file
@@ -419,30 +408,30 @@ rule multiqc:
 ## Adapter trimming
 ## ------------------------------------------------------------------------------------ ##
 # TrimGalore!
-rule trimgaloreSE:
-	input:
-		fastq = FASTQdir + "{sample}." + str(config["fqsuffix"]) + ".gz"
-	output:
-		outputdir + "FASTQtrimmed/{sample}_trimmed.fq.gz"
-	params:
-		FASTQtrimmeddir = outputdir + "FASTQtrimmed"
-	log:
-		outputdir + "logs/trimgalore_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/trimgalore_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	shell:
-		"echo 'TrimGalore! version:\n' > {log}; trim_galore --version >> {log}; "
-		"trim_galore -q 20 --phred33 --length 20 -o {params.FASTQtrimmeddir} --path_to_cutadapt cutadapt {input.fastq}"
+# rule trimgaloreSE:
+# 	input:
+# 		fastq = FASTQdir + "{sample}." + str(config["fqsuffix"]) + ".gz"
+# 	output:
+# 		outputdir + "FASTQtrimmed/{sample}_trimmed.fq.gz"
+# 	params:
+# 		FASTQtrimmeddir = outputdir + "FASTQtrimmed"
+# 	log:
+# 		outputdir + "logs/trimgalore_{sample}.log"
+# 	benchmark:
+# 		outputdir + "benchmarks/trimgalore_{sample}.txt"
+# 	conda:
+# 		"envs/environment.yaml"
+# 	shell:
+# 		"echo 'TrimGalore! version:\n' > {log}; trim_galore --version >> {log}; "
+# 		"trim_galore -q 20 --phred33 --length 20 -o {params.FASTQtrimmeddir} --path_to_cutadapt cutadapt {input.fastq}"
 
 rule trimgalorePE:
 	input:
 		fastq1 = FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]) + ".gz",
 		fastq2 = FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]) + ".gz"
 	output:
-		outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz",
-		outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz"
+		intermediate_fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz",
+		intermediate_fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz"
 	params:
 		FASTQtrimmeddir = outputdir + "FASTQtrimmed"
 	log:
@@ -454,107 +443,9 @@ rule trimgalorePE:
 	shell:
 		"echo 'TrimGalore! version:\n' > {log}; trim_galore --version >> {log}; "
 		"trim_galore -q 20 --phred33 --length 20 -o {params.FASTQtrimmeddir} --path_to_cutadapt cutadapt "
-		"--paired {input.fastq1} {input.fastq2}"
-
-## ------------------------------------------------------------------------------------ ##
-## HISAT2 mapping
-## ------------------------------------------------------------------------------------ ##
-## Genome mapping with HISAT2
-rule HISAT2PE:
-	input:
-		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]) + ".gz",
-		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]) + ".gz"
-	output:
-		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.out.bam"
-	threads:
-		config["ncores"]
-	log:
-		version = outputdir + "logs/HISAT2_{sample}.log",
-		stats = outputdir + "HISAT2" + "/HISAT2_{sample}_stats.txt"
-	benchmark:
-		outputdir + "benchmarks/HISAT2_{sample}.txt"
-	params:
-		HISAT2index = config["HISAT2index"],
-		HISAT2dir = outputdir + "HISAT2"
-	conda:
-		"envs/environment.yaml"
-	shell:
-		"echo 'hisat2 --version:\n' > {log.version}; hisat2 --version >> {log.version}; "
-		"hisat2 --new-summary --pen-noncansplice 20 --threads {threads} --mp 1,0 --sp 3,1 -x {params.HISAT2index} -1 {input.fastq1} -2 {input.fastq2} 2> {log.stats} | samtools view -Sbo {output.bam}"
-
-# convert and sort sam files
-rule bamsort:
-	input:
-		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.out.bam"
-	output:
-		sorted_bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
-	log:
-		outputdir + "logs/samtools_sort_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/samtools_sort_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	shell:
-		"echo 'samtools version:\n' > {log}; samtools --version >> {log}; "
-		"samtools sort -O bam -o {output.sorted_bam} {input.bam}"
-
-## Index bam files
-rule bamindexhisat2:
-	input:
-		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
-	output:
-		outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam.bai"
-	log:
-		outputdir + "logs/samtools_index_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/samtools_index_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	shell:
-		"echo 'samtools version:\n' > {log}; samtools --version >> {log}; "
-		"samtools index {input.bam}"
-
-## Convert gdna BAM files to bigWig
-rule bigwighisat2:
-	input:
-		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
-	output:
-		outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw"
-	params:
-	  prefix = outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out"
-		# HISAT2bigwigdir = outputdir + "HISAT2bigwig"
-	log:
-		outputdir + "logs/bigwig_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/bigwig_{sample}.txt"
-	conda:
-		"envs/environment.yaml"
-	shell:
-	  "megadepth {input.bam} --threads {threads} --bigwig --prefix {params.prefix}"
-
-## ------------------------------------------------------------------------------------ ##
-## Stringtie
-## ------------------------------------------------------------------------------------ ##
-# Transcript assembly using StringTie
-rule stringtie:
-	input:
-		bam = outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
-	output:
-		gtf = outputdir + "stringtie/{sample}/{sample}.gtf"
-	log:
-		outputdir + "logs/stringtie_{sample}.log"
-	benchmark:
-		outputdir + "benchmarks/stringtie_{sample}.txt"
-	threads:
-		config["ncores"]
-	params:
-		stringtiegtf = config["gtf"],
-		stringtiedir = outputdir + "stringtie"
-	conda:
-		"envs/environment.yaml"
-	shell:
-		"echo 'stringtie version:\n' > {log}; stringtie --version >> {log}; "
-		"stringtie {input.bam} -G {params.stringtiegtf} -x MT -eB -o {output.gtf}"
+		"--paired {input.fastq1} {input.fastq2}; "
+		
+		
 
 ## ------------------------------------------------------------------------------------ ##
 ## DEXSeq
@@ -728,12 +619,25 @@ rule salmonPE:
 # 		"STAR --genomeDir {params.STARindex} --readFilesIn {input.fastq} "
 # 		"--runThreadN {threads} --outFileNamePrefix {params.STARdir}/{wildcards.sample}/{wildcards.sample}_ "
 # 		"--outSAMtype BAM SortedByCoordinate --readFilesCommand gunzip -c"
+# 
+# rule unzip_star_input:
+# 	input:
+# 		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]) + ".gz",
+# 		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]) + ".gz"
+# 	output:
+# 		temp(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"])),
+# 		temp(outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]))
+# 	params:
+# 		processes = "-p"+str(config["ncores"])
+# 	shell:
+# 		"unpigz --keep {params.processes} {input.fastq1}; "
+# 		"unpigz --keep {params.processes} {input.fastq2}"
 
 rule starPE:
 	input:
 		index = config["STARindex"] + "/SA",
-		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]) + ".gz",
-		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"]) + ".gz"
+		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]),
+		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"])
 	output:
 		outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam"
 	threads:
@@ -751,7 +655,47 @@ rule starPE:
 		"echo 'STAR version:\n' > {log}; STAR --version >> {log}; "
 		"STAR --genomeDir {params.STARindex} --readFilesIn {input.fastq1} {input.fastq2} "
 		"--runThreadN {threads} --outFileNamePrefix {params.STARdir}/{wildcards.sample}/{wildcards.sample}_ "
-		"--outSAMtype BAM SortedByCoordinate --outSAMattrIHstart 0 --readFilesCommand gunzip -c"
+		"--outSAMtype BAM SortedByCoordinate --outSAMattrIHstart 0"
+		
+rule prep_cellranger_input:
+	input:
+		fastq1 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext1"]) + "_val_1.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext1"]) + "." + str(config["fqsuffix"]),
+		fastq2 = outputdir + "FASTQtrimmed/{sample}_" + str(config["fqext2"]) + "_val_2.fq.gz" if config["run_trimming"] else FASTQdir + "{sample}_" + str(config["fqext2"]) + "." + str(config["fqsuffix"])
+	output:
+		fastq1 = outputdir + "FASTQtrimmed/{sample}/{sample}" + "_S1_L001_R1_001.fastq.gz",
+		fastq2 = outputdir + "FASTQtrimmed/{sample}/{sample}" + "_S1_L001_R2_001.fastq.gz"
+	threads:
+		config["ncores"]
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"cp {input.fastq1} {output.fastq1}; "
+		"cp {input.fastq2} {output.fastq2}"
+		
+rule cellranger:
+	input:
+		fastqdir = FASTQdir + "{sample}"
+	output:
+		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
+		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz",
+		matrix_dir = directory(outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix")
+	threads:
+		config["ncores"]
+	log:
+		outputdir + "logs/cellranger_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/cellranger_{sample}.txt"
+	params:
+		cellranger_transcriptome = config["cellranger_transcriptome"],
+		cellranger_dir = outputdir + "cellranger"
+	conda:
+		"envs/environment.yaml"
+	shell:
+		"echo 'cellranger version:\n' > {log}; cellranger --version >> {log}; "
+		"rm -rf {params.cellranger_dir}/{wildcards.sample}; "
+		"cellranger count --id={wildcards.sample} --fastqs={input.fastqdir} "
+		" --sample={wildcards.sample} --transcriptome={params.cellranger_transcriptome} --localmem 40; "
+		"mv {wildcards.sample} {params.cellranger_dir}/{wildcards.sample}"
 
 ## Index bam files
 rule bamindex:
@@ -775,9 +719,9 @@ rule bigwig:
 		bam = outputdir + "STAR/{sample}/{sample}_Aligned.sortedByCoord.out.bam",
 		chrl = config["STARindex"] + "/chrNameLength.txt"
 	output:
-		outputdir + "STARbigwig/{sample}_Aligned.sortedByCoord.out.bw"
+		outputdir + "STAR/{sample}_Aligned.sortedByCoord.out.bw"
 	params:
-		STARbigwigdir = outputdir + "STARbigwig"
+		STARbigwigdir = outputdir + "STAR"
 	log:
 		outputdir + "logs/bigwig_{sample}.log"
 	benchmark:
@@ -799,7 +743,7 @@ rule bigwig:
 rule tximeta:
 	input:
 	  outputdir + "Rout/pkginstall_state.txt",
-		expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.names.values.tolist()),
+		expand(outputdir + "salmon/{sample}/quant.sf", sample = samples.name.values.tolist()),
 		metatxt = config["metatxt"],
 		salmonidx = config["salmonindex"] + "/hash.bin",
 		json = config["salmonindex"] + ".json",
@@ -823,7 +767,7 @@ rule tximeta:
 rule velocyto:
 	input:
 	  outputdir + "Rout/pkginstall_state.txt",
-		bam_files = expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam", sample = samples.names.values.tolist()),
+		bam_files = expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam", sample = samples.name.values.tolist()),
 	output:
 		loom_file = outputdir + "velocyto/" + os.path.basename(proj_dir) + ".loom"
 	log:
@@ -840,25 +784,6 @@ rule velocyto:
 	shell:
 		"velocyto run-smartseq2 -o {params.loom_dir} -m {params.repeat_mask} -e {params.proj_name} {input.bam_files} {params.gtf}"
 		
-## tximport
-rule tximport:
-	input:
-	  outputdir + "Rout/pkginstall_state.txt",
-		expand(outputdir + "stringtie/{sample}/{sample}.gtf", sample = samples.names.values.tolist()),
-		script = "scripts/run_tximport.R"
-	output:
-		outrds = outputdir + "seurat/unfiltered_seu.rds",
-	log:
-		outputdir + "Rout/tximport.Rout"
-	benchmark:
-		outputdir + "benchmarks/tximport.txt"
-	params:
-		stringtiedir = outputdir + "stringtie",
-		organism = config["organism"]
-	conda:
-		Renv
-	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args stringtiedir='{params.stringtiedir}' proj_dir='{proj_dir}' outrds='{output.outrds}' organism='{params.organism}'" {input.script} {log}'''
 
 ## rna velocity on a seurat object
 rule velocyto_seurat:
@@ -887,7 +812,7 @@ rule velocyto_seurat:
 ## scTE
 rule scTE:
 	input:
-		bam_files = expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam", sample = samples.names.values.tolist()),
+		bam_files = expand(outputdir + "HISAT2/{sample}/{sample}_Aligned.sortedByCoord.out.bam", sample = samples.name.values.tolist()),
 	output:
 		te_csv = outputdir + "scTE/" + os.path.basename(proj_dir) + "_tes.csv"
 	log:
@@ -901,13 +826,120 @@ rule scTE:
 		"envs/environment.yaml"
 	shell:
 		"scTE -i {input.bam_files} -o {output} -g {params.te_build} -x {params.te_index} -CB False -UMI False"
-		
 
 ## ------------------------------------------------------------------------------------ ##
-## SCENIC
+## numbat
 ## ------------------------------------------------------------------------------------ ##
 
-include: "rules/scenic.smk"
+# include: "rules/numbat.smk"
+rule pileup_and_phasing:
+	input:
+		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
+		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"
+	output:
+		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz"
+	log:
+		outputdir + "logs/pileup_and_phase_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/pileup_and_phase_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		gmap = config["gmap"],
+		snpvcf = config["snpvcf"],
+		paneldir = config["paneldir"],
+		numbatdir = outputdir + "numbat",
+		outdir = outputdir + "numbat/{sample}",
+		script = "scripts/pileup_and_phase.R"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args eagle='eagle' smartseq='FALSE' cellTAG='CB' UMItag='Auto' label='{wildcards.sample}' samples='{wildcards.sample}' bams='{input.bam}' barcodes='{input.barcodes}' gmap='{params.gmap}' snpvcf='{params.snpvcf}' paneldir='{params.paneldir}' numbatdir='{params.numbatdir}' outdir='{params.outdir}' ncores='{threads}'" {params.script} {log}'''
+
+rule numbat:
+	input:
+		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
+		matrix_dir = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix"
+		# matrix_dir = datadir + "{sample}"
+	output:
+		outputdir + "numbat/{sample}/done.txt"
+	log:
+		outputdir + "logs/numbat_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/numbat_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		numbatdir = outputdir + "numbat/",
+		max_entropy = config["max_entropy"],
+		min_LLR = config["min_LLR"],
+		max_iter = config["max_iter"],
+		read_prop = config["read_prop"],
+		tau = config["tau"],
+		numbat_t = config["numbat_t"],
+		prof= outputdir + "numbat/{sample}/log.prof",
+		normal_reference_mat = config["normal_reference_mat"],
+		script = "scripts/run_numbat.R"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_dir='{input.matrix_dir}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+
+rule pagoda_prep:
+	input:
+		matrix_dir = datadir + "{sample}",
+		script = "scripts/prep_pagoda.R"
+	output:
+		prepped_pagoda = outputdir + "pagoda/{sample}.rds"
+		# aneuploid_pagoda = outputdir + "pagoda/{sample}_aneuploid.rds",
+		# webapp = outputdir + "numbat/{sample}_app.rds",
+		# aneuploid_webapp = outputdir + "numbat/{sample}_aneuploid_app.rds"
+	log:
+		outputdir + "logs/pagoda_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/pagoda_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		numbat_outdir = outputdir + "numbat/{sample}/"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args ncores='{threads}' numbat_outdir='{params.numbat_outdir}' matrix_dir='{input.matrix_dir}' outrds='{output.prepped_pagoda}'" {input.script} {log}'''
+
+rule numbat_report:
+	input:
+		clone_file = outputdir + "numbat/{sample}/" + clones_filename,
+		prepped_pagoda = outputdir + "pagoda/{sample}.rds",
+		script = "scripts/render_rmarkdown.R"
+	output:
+		report = outputdir + "numbat/{sample}/{sample}_report.html"
+	log:
+		outputdir + "logs/report_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/report_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		numbat_dir = outputdir + "numbat/{sample}/",
+		rmarkdown_file = os.getcwd() + "/scripts/plot_numbat_output.Rmd"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args rmarkdown_file='{params.rmarkdown_file}' clone_file='{input.clone_file}' report='{output.report}' prepped_pagoda='{input.prepped_pagoda}' numbat_dir='{params.numbat_dir}'" {input.script} {log}'''
+
+rule run_infercnv:
+	input:
+		script = "scripts/run_infercnv.R",
+		matrix_dir = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix"
+		# matrix_dir = datadir + "{sample}"
+	output:
+		annotations_path = outputdir + "infercnv/{sample}/annotations.tsv",
+		infercnv_plot = outputdir + "infercnv/{sample}/infercnv.png",
+	log:
+		outputdir + "logs/infercnv_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/infercnv_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		normal_reference_mat = config["normal_reference_mat"],
+		out_dir = outputdir + "infercnv/{sample}/"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args matrix_dir='{input.matrix_dir}' threads='{threads}' normal_reference_mat='{params.normal_reference_mat}' annotations_path='{output.annotations_path}' out_dir='{params.out_dir}' " {input.script} {log}'''
+
 
 ## ------------------------------------------------------------------------------------ ##
 ## Input variable check
@@ -1015,15 +1047,15 @@ rule DRIMSeq:
 def shiny_input(wildcards):
 	input = [outputdir + "Rout/pkginstall_state.txt"]
 	if config["run_STAR"]:
-		input.extend(expand(outputdir + "STARbigwig/{sample}_Aligned.sortedByCoord.out.bw", sample = samples.names.values.tolist()))
+		input.extend(expand(outputdir + "STAR/{sample}_Aligned.sortedByCoord.out.bw", sample = samples.name.values.tolist()))
 	if config["run_HISAT2"]:
-		input.extend(expand(outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw", sample = samples.names.values.tolist()))
+		input.extend(expand(outputdir + "HISAT2bigwig/{sample}_Aligned.sortedByCoord.out.all.bw", sample = samples.name.values.tolist()))
 	return input
 
 def shiny_params(wildcards):
 	param = ["outputdir='" + outputdir + "outputR'"]
 	if config["run_STAR"]:
-		param.append("bigwigdir='" + outputdir + "STARbigwig'")
+		param.append("bigwigdir='" + outputdir + "STAR'")
 	if config["run_HISAT2"]:
 		param.append("bigwigdir='" + outputdir + "HISAT2bigwig'")
 	return param
