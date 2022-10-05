@@ -544,7 +544,6 @@ rule stringtie:
 	shell:
 		"echo 'stringtie version:\n' > {log}; stringtie --version >> {log}; "
 		"stringtie {input.bam} -G {params.stringtiegtf} -x MT -eB -o {output.gtf}"
->>>>>>> 270a8379b4439f52fab5e013fc019bda77a25874
 
 ## ------------------------------------------------------------------------------------ ##
 ## DEXSeq
