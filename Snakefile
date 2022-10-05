@@ -443,12 +443,7 @@ rule trimgalorePE:
 	shell:
 		"echo 'TrimGalore! version:\n' > {log}; trim_galore --version >> {log}; "
 		"trim_galore -q 20 --phred33 --length 20 -o {params.FASTQtrimmeddir} --path_to_cutadapt cutadapt "
-<<<<<<< HEAD
 		"--paired {input.fastq1} {input.fastq2}; "
-		
-		
-=======
-		"--paired {input.fastq1} {input.fastq2}"
 
 ## ------------------------------------------------------------------------------------ ##
 ## HISAT2 mapping
