@@ -30,7 +30,7 @@ for (sample in samples) {
     dir.create(glue('{outdir}/pileup/{sample}'), showWarnings = FALSE)
 }
 
-# pileup ------------------------------
+## pileup
 
 cmds = c()
 
@@ -89,8 +89,7 @@ warning = function(w){
     stop('Pileup failed')
 })
 
-# VCF creation ------------------------------
-
+## VCF creation
 cat('Creating VCFs\n')
 vcfs = lapply(samples, function(sample){vcfR::read.vcfR(glue('{outdir}/pileup/{sample}/cellSNP.base.vcf'), verbose = F)})
 
@@ -126,8 +125,7 @@ warning = function(w){
     stop('Phasing failed')
 })
 
-# Generate allele count dataframe ------------------------------
-
+## Generate allele count dataframe
 cat('Generating allele count dataframes\n')
 
 if (genome == 'hg19') {
@@ -135,6 +133,15 @@ if (genome == 'hg19') {
 } else {
     gtf_transcript = gtf_hg38
 }
+
+genetic_map = fread(gmap) %>% 
+    setNames(c('CHROM', 'POS', 'rate', 'cM')) %>%
+    group_by(CHROM) %>%
+    mutate(
+        start = POS,
+        end = c(POS[2:length(POS)], POS[length(POS)])
+    ) %>%
+    ungroup()
 
 for (sample in samples) {
 
@@ -171,9 +178,11 @@ for (sample in samples) {
         DP = DP,
         barcodes = cell_barcodes,
         gtf = gtf_transcript,
-        gmap =  gmap
-    )
+        gmap =  genetic_map
+    ) %>%
+    filter(GT %in% c('1|0', '0|1'))
 
     fwrite(df, glue('{numbatdir}/{sample}_allele_counts.tsv.gz'), sep = '\t')
 
 }
+
