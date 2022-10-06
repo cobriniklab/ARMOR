@@ -946,11 +946,21 @@ rule pileup_and_phasing:
 		gmap = config["gmap"],
 		snpvcf = config["snpvcf"],
 		paneldir = config["paneldir"],
-		numbatdir = outputdir + "numbat",
 		outdir = outputdir + "numbat/{sample}",
-		script = "scripts/pileup_and_phase.R"
+		script = "scripts/pileup_and_phase.R",
+		intermediate_allele_df = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args eagle='eagle' smartseq='FALSE' cellTAG='CB' UMItag='Auto' label='{wildcards.sample}' samples='{wildcards.sample}' bams='{input.bam}' barcodes='{input.barcodes}' gmap='{params.gmap}' snpvcf='{params.snpvcf}' paneldir='{params.paneldir}' numbatdir='{params.numbatdir}' outdir='{params.outdir}' ncores='{threads}'" {params.script} {log}'''
+		'''Rscript {params.script} \
+		--label {wildcards.sample} \
+		--samples {wildcards.sample} \
+		--bams {input.bam} \
+		--barcodes {input.barcodes} \
+		--outdir {params.outdir} \
+		--gmap {params.gmap} \
+		--snpvcf {params.snpvcf} \
+		--paneldir {params.paneldir} \
+		--ncores {threads} > {log} 2>&1; \
+		mv {params.intermediate_allele_df} {output.allele_table}'''
 
 rule numbat:
 	input:
