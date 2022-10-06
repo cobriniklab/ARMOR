@@ -1,19 +1,27 @@
 
 
-rule seu_to_anndata:
+rule pileup_and_phase:
 	input:
-		seu_file = outputdir + "seurat/unfiltered_seu.rds",
-		script = "scripts/seu_to_loom.R"
+		bam_file = "output/STAR/SRR13633760/SRR13633760_Aligned.sortedByCoord.out.bam"
+		barcodes = "data/9_4months_Retinoblastoma/barcodes.tsv.gz"
+		script = "scripts/pileup_and_phase.R"
 	output:
-		loom_file = outputdir + "scenic/unfiltered.loom"
+		outdir = outputdir + "numbat/pileup/{sample}"
 	log:
 		outputdir + "Rout/scenic.Rout"
 	benchmark:
 		outputdir + "benchmarks/scenic.txt"
+	params:
+		gmap = config["gmap"]
+		snpvcf = config["snpvcf"]
+		paneldir = config["paneldir"]
+		numbat_dir = outputdir + "numbat/"
 	conda:
 		"../envs/environment_R.yaml"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_file='{input.seu_file}' loom_file='{output.loom_file}'" {input.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args label='test' samples='test' '''
+		'''bams='{input.bam_file}' barcodes='{input.barcodes} gmap='{params.gmap}' snpvcf='test' '''
+		'''paneldir='{params.paneldir}' outdir='{params.numbat_dir}' ncores='4'" {input.script} {log}'''
 
 rule runscenic:
 	input:

@@ -134,7 +134,20 @@ if (genome == 'hg19') {
     gtf_transcript = gtf_hg38
 }
 
+genetic_map = fread(gmap) %>% 
+    setNames(c('CHROM', 'POS', 'rate', 'cM')) %>%
+    group_by(CHROM) %>%
+    mutate(
+        start = POS,
+        end = c(POS[2:length(POS)], POS[length(POS)])
+    ) %>%
+    ungroup()
+
 for (sample in samples) {
+    
+    numbatdir = "output/numbat"
+    
+    outdir = fs::path(numbatdir, sample)
 
     # read in phased VCF
     vcf_phased = lapply(1:22, function(chr) {
@@ -169,9 +182,19 @@ for (sample in samples) {
         DP = DP,
         barcodes = cell_barcodes,
         gtf = gtf_transcript,
-        gmap =  gmap
-    )
+        gmap =  genetic_map
+    ) %>%
+    filter(GT %in% c('1|0', '0|1'))
 
     fwrite(df, glue('{numbatdir}/{sample}_allele_counts.tsv.gz'), sep = '\t')
 
 }
+
+sample = "SRR14800538"
+outdir = "output/numbat/SRR14800538/"
+gtf_transcript = gtf_hg38
+gmap = "/usr/local/bin/TOOLS/Eagle_v2.4.1/tables/genetic_map_hg38_withX.txt.gz"
+# pu_dir = "output/numbat/SRR14800534/phasing/"
+# vcf_pu = fread(glue('{pu_dir}/cellSNP.base.vcf')) %>% rename(CHROM = `#CHROM`)
+# vcf_phased = 
+

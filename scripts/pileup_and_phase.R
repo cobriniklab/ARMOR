@@ -183,6 +183,4 @@ for (sample in samples) {
     filter(GT %in% c('1|0', '0|1'))
 
     fwrite(df, glue('{numbatdir}/{sample}_allele_counts.tsv.gz'), sep = '\t')
-
 }
-
