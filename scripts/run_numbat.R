@@ -13,6 +13,8 @@ library(readr)
 library(magrittr)
 conflicted::conflict_prefer("rowSums", "Matrix")
 
+matrix_dir = fs::path_dir(matrix_file)
+
 count_mat <- Seurat::Read10X(matrix_dir)
 
 if(!as.numeric(read_prop) == 1){

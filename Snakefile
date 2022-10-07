@@ -776,7 +776,7 @@ rule cellranger:
 	output:
 		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
 		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz",
-		matrix_dir = directory(outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix")
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	threads:
 		config["ncores"]
 	log:
@@ -965,8 +965,7 @@ rule pileup_and_phasing:
 rule numbat:
 	input:
 		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
-		matrix_dir = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix"
-		# matrix_dir = datadir + "{sample}"
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
 		outputdir + "numbat/{sample}/done.txt"
 	log:
@@ -987,11 +986,11 @@ rule numbat:
 		normal_reference_mat = config["normal_reference_mat"],
 		script = "scripts/run_numbat.R"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_dir='{input.matrix_dir}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
 
 rule pagoda_prep:
 	input:
-		matrix_dir = datadir + "{sample}",
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz",
 		script = "scripts/prep_pagoda.R"
 	output:
 		prepped_pagoda = outputdir + "pagoda/{sample}.rds"
@@ -1007,7 +1006,7 @@ rule pagoda_prep:
 	params:
 		numbat_outdir = outputdir + "numbat/{sample}/"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args ncores='{threads}' numbat_outdir='{params.numbat_outdir}' matrix_dir='{input.matrix_dir}' outrds='{output.prepped_pagoda}'" {input.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args ncores='{threads}' numbat_outdir='{params.numbat_outdir}' matrix_file='{input.matrix_file}' outrds='{output.prepped_pagoda}'" {input.script} {log}'''
 
 rule numbat_report:
 	input:
@@ -1031,8 +1030,7 @@ rule numbat_report:
 rule run_infercnv:
 	input:
 		script = "scripts/run_infercnv.R",
-		matrix_dir = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix"
-		# matrix_dir = datadir + "{sample}"
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
 		annotations_path = outputdir + "infercnv/{sample}/annotations.tsv",
 		infercnv_plot = outputdir + "infercnv/{sample}/infercnv.png",
@@ -1046,7 +1044,7 @@ rule run_infercnv:
 		normal_reference_mat = config["normal_reference_mat"],
 		out_dir = outputdir + "infercnv/{sample}/"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args matrix_dir='{input.matrix_dir}' threads='{threads}' normal_reference_mat='{params.normal_reference_mat}' annotations_path='{output.annotations_path}' out_dir='{params.out_dir}' " {input.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args matrix_file='{input.matrix_file}' threads='{threads}' normal_reference_mat='{params.normal_reference_mat}' annotations_path='{output.annotations_path}' out_dir='{params.out_dir}' " {input.script} {log}'''
 
 
 ## ------------------------------------------------------------------------------------ ##
