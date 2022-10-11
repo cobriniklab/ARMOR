@@ -40,7 +40,9 @@ allele_df = read_tsv(allele_df) %>%
 #
 # ref_internal = numbat::aggregate_counts(normal_reference_mat, normal_cell_annot)
 
-ref_internal <- readRDS("~/single_cell_projects/resources/collin_et_al_2021_proj/data/sridhar_normal_ref.rds")
+ref_path <- "~/single_cell_projects/resources/collin_et_al_2021_proj/data/sridhar_normal_ref.rds"
+
+ref_internal <- readRDS(ref_path)
 
 # count_mat <- count_mat[rownames(count_mat) %in% rownames(normal_reference_mat),]
 
@@ -80,4 +82,4 @@ out = run_numbat(
 
 done_file <- fs::path(out_dir, "done.txt")
 
-write("done!", file = done_file)
+write(ref_path, file = done_file)
