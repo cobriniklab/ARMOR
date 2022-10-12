@@ -127,7 +127,6 @@ def infercnv_output(wildcards):
   input.extend(expand(outputdir + "infercnv/{sample}/infercnv.png", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
  
-  
 	
 ## ------------------------------------------------------------------------------------ ##
 ## Target definitions
@@ -935,7 +934,8 @@ rule pileup_and_phasing:
 		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
 		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"
 	output:
-		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz"
+		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
+		phased_output = outputdir + "numbat/{sample}/phasing/{sample}_chr22.phased.vcf.gz"
 	log:
 		outputdir + "logs/pileup_and_phase_{sample}.log"
 	benchmark:

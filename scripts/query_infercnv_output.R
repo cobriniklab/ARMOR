@@ -27,26 +27,10 @@ make_seus_from_cellranger <- function(sample_path){
   seu <- Seurat::CreateSeuratObject(count_mat, assay = "gene") %>%
     RenameCells(new.names = str_replace(colnames(.), "-", "."))
 
-  seu <- seuratTools::clustering_workflow(seu, resolution = c(0.2, 0.4))
-
   saveRDS(seu, seu_path)
   print(glue::glue("saved {seu_path}"))
 
   return(seu)
-
-  # seu_merged <- merge(seu, normal_seu)
-  #
-  # seu_merged <- infercnv::add_to_seurat(seu_merged, fs::path("output/infercnv", path_file(sample_path)))
-  #
-  # seu_w_cnv <- seu_merged[,!grepl("normal", colnames(seu_merged))]
-  #
-  # seu_w_cnv <- seuratTools::clustering_workflow(seu_w_cnv, resolution = c(0.2, 0.4))
-  #
-  # seu_cnv_path <- path("output/seurat", paste0(path_file(sample_path), "_cnv_seu.rds"))
-  #
-  # saveRDS(seu_w_cnv, seu_cnv_path)
-  #
-  # seu_cnv_path
 
 }
 
@@ -82,7 +66,7 @@ cellranger_paths <-
   fs::dir_ls("output/cellranger/", glob = "*SRR*") %>%
   purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
-# seus <- purrr::map(cellranger_paths, make_seus_from_cellranger, normal_seu)
+seus <- purrr::map(cellranger_paths, make_seus_from_cellranger)
 
 seu_paths <-
   cellranger_paths <-
@@ -104,6 +88,8 @@ patchworks
 dev.off()
 
 # exclude code ------------------------------
+
+sample_ids <- c("SRR14800534", "SRR14800535", "SRR14800536", "SRR14800537", "SRR14800538", "SRR14800539", "SRR14800540", "SRR14800541", "SRR14800542", "SRR14800543")
 
 test0 <- append_infercnv_to_seu("SRR17960480", normal_seu)
 

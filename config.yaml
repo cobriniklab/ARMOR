@@ -144,7 +144,7 @@ tau: 0.3
 numbat_t: 1e-5
 
 ## infercnv
-normal_reference_mat: ../output/infercnv/reference_counts.rds
+normal_reference_mat: /dataVolume/storage/Homo_sapiens/infercnv/reference_mat.rds   
 
 ## Conditional conda rules
 ##---------------------------------------------------------------------------------------------

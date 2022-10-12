@@ -21,9 +21,9 @@ if(!as.numeric(read_prop) == 1){
 	count_mat <- scuttle::downsampleMatrix(count_mat, as.numeric(read_prop))
 }
 
-allele_df = read_tsv(allele_df) %>%
-  tidyr::drop_na(CHROM) %>% # drop X chromosome values %>%
-	dplyr::mutate(CHROM = as.factor(CHROM)) %>%
+allele_df = data.table::fread(allele_df) %>%
+    tidyr::drop_na(CHROM) %>% # drop X chromosome values
+    # dplyr::mutate(CHROM = as.factor(CHROM)) %>%
   identity()
 
 # normal_reference_mat = readRDS(normal_reference_mat)
@@ -40,7 +40,7 @@ allele_df = read_tsv(allele_df) %>%
 #
 # ref_internal = numbat::aggregate_counts(normal_reference_mat, normal_cell_annot)
 
-ref_path <- "~/single_cell_projects/resources/collin_et_al_2021_proj/data/sridhar_normal_ref.rds"
+ref_path <- "~/Homo_sapiens/numbat/sridhar_ref.rds"
 
 ref_internal <- readRDS(ref_path)
 

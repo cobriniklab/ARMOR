@@ -190,8 +190,8 @@ for (sample in samples) {
 
 }
 
-sample = "SRR14800538"
-outdir = "output/numbat/SRR14800538/"
+sample = "SRR14800539"
+outdir = "output/numbat/SRR14800539/"
 gtf_transcript = gtf_hg38
 gmap = "/usr/local/bin/TOOLS/Eagle_v2.4.1/tables/genetic_map_hg38_withX.txt.gz"
 # pu_dir = "output/numbat/SRR14800534/phasing/"
