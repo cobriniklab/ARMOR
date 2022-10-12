@@ -133,7 +133,7 @@ script = glue('{outdir}/run_pileup.sh')
 
 list(cmds) %>% fwrite(script, sep = '\n')
 
-system(glue('chmod +x {script}'))
+system(glue('chmod 777 {script}'))
 
 tryCatch({
     system(glue('sh {script}'), intern = TRUE)
@@ -165,7 +165,7 @@ script = glue('{outdir}/run_phasing.sh')
 
 list(cmds) %>% fwrite(script, sep = '\n')
 
-system(glue('chmod +x {script}'))
+system(glue('chmod 777 {script}'))
 
 tryCatch({
     system2(script, stdout = glue("{outdir}/phasing.log"))
