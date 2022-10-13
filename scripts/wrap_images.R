@@ -19,7 +19,6 @@ cellranger_paths <-
   purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
 seu_cnv_paths <-
-  cellranger_paths <-
   fs::dir_ls("output/seurat/", glob = "*SRR*cnv*") %>%
   purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
@@ -37,6 +36,14 @@ read_image_as_plot <- function(image_path){
 
   return(infercnv_image)
 }
+
+infercnv_image_paths <- dir_ls("output/infercnv/", glob = "*infercnv.png", recurse = TRUE)
+
+dir_create("results/infercnv")
+
+new_infercnv_image_paths <- path("results/infercnv", paste0(path_file(path_dir(infercnv_image_paths)), "_infercnv.png"))
+
+map2(infercnv_image_paths, new_infercnv_image_paths, fs::file_copy)
 
 infercnv_images <- dir_ls("results/infercnv", glob = "*.png") %>%
   purrr::map(read_image_as_plot) %>%
