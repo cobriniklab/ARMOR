@@ -934,7 +934,7 @@ rule pileup_and_phasing:
 		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
 		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"
 	output:
-		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
+		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
 		phased_output = outputdir + "numbat/{sample}/phasing/{sample}_chr22.phased.vcf.gz"
 	log:
 		outputdir + "logs/pileup_and_phase_{sample}.log"
@@ -948,7 +948,6 @@ rule pileup_and_phasing:
 		paneldir = config["paneldir"],
 		outdir = outputdir + "numbat/{sample}",
 		script = "scripts/pileup_and_phase.R",
-		intermediate_allele_df = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz"
 	shell:
 		'''Rscript {params.script} \
 		--label {wildcards.sample} \
@@ -959,12 +958,11 @@ rule pileup_and_phasing:
 		--gmap {params.gmap} \
 		--snpvcf {params.snpvcf} \
 		--paneldir {params.paneldir} \
-		--ncores {threads} > {log} 2>&1; \
-		mv {params.intermediate_allele_df} {output.allele_table}'''
+		--ncores {threads} > {log} 2>&1'''
 
 rule numbat:
 	input:
-		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
+		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
 		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
 		outputdir + "numbat/{sample}/done.txt"
