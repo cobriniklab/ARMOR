@@ -12,30 +12,29 @@ library(infercnv)
 plot_numbat_genotype_distribution <- function(numbat_seu_path) {
     # browser()
     seu <- readRDS(numbat_seu_path)
-    
+
     seu@meta.data$clone_opt <- factor(seu@meta.data$clone_opt)
-    
+
     DimPlot(seu, group.by = "clone_opt")
-    
+
     genotype_per_cluster <- janitor::tabyl(seu@meta.data, clone_opt, gene_snn_res.0.2) %>%
         tidyr::pivot_longer(-c("clone_opt"), names_to = "cluster", values_to = "num_cell") %>%
         dplyr::group_by(cluster) %>%
         dplyr::mutate(percent_cell = num_cell/sum(num_cell))
-    
+
     # percent cell  ------------------------------
     genotype_distribution = ggplot(genotype_per_cluster, aes(percent_cell, cluster, fill = clone_opt)) +
         geom_col() +
         theme_bw() +
         labs(title = numbat_seu_path, y = "Percent cells")
-    
-    clone_dimplot <- DimPlot(seu, group.by = "clone_opt")
-    
-    cluster_dimplot <- DimPlot(seu, group.by = "gene_snn_res.0.2")
-    
-    patchwork <- genotype_distribution / (clone_dimplot + cluster_dimplot)
-    
-}
 
+    clone_dimplot <- DimPlot(seu, group.by = "clone_opt")
+
+    cluster_dimplot <- DimPlot(seu, group.by = "gene_snn_res.0.2")
+
+    patchwork <- genotype_distribution / (clone_dimplot + cluster_dimplot)
+
+}
 
 normal_reference_path <- "~/Homo_sapiens/infercnv/reference_mat.rds"
 
@@ -72,6 +71,7 @@ read_image_as_plot <- function(image_path){
 
 infercnv_image_paths <- dir_ls("output/infercnv/", glob = "*infercnv.png", recurse = TRUE)
 
+# save infercnv images ------------------------------
 dir_create("results/infercnv")
 
 new_infercnv_image_paths <- path("results/infercnv", paste0(path_file(path_dir(infercnv_image_paths)), "_infercnv.png"))
@@ -82,21 +82,35 @@ infercnv_images <- dir_ls("results/infercnv", glob = "*.png") %>%
   purrr::map(read_image_as_plot) %>%
   identity()
 
+# save numbat images ------------------------------
+numbat_dir <- "results/numbat"
+dir_create(numbat_dir)
+
+numbat_image_paths <- dir_ls("output/numbat", regexp = "\\/SRR[0-9].*\\/panel_2.png", recurse = TRUE)
+
+new_numbat_image_paths <- path(numbat_dir, paste0(path_file(path_dir(numbat_image_paths)), "_numbat.png"))
+
+map2(numbat_image_paths, new_numbat_image_paths, fs::file_copy)
+
+numbat_images <- dir_ls("results/infercnv", glob = "*.png") %>%
+  purrr::map(read_image_as_plot) %>%
+  identity()
+
 make_phylo_heatmap <- function(numbat_dir){
     nb = Numbat$new(out_dir = numbat_dir)
-    
+
     nb$plot_consensus()
-    
+
     mypal = scales::hue_pal()(n_distinct(nb$clone_post$clone_opt))
-    
+
     names(mypal) <- seq(1:length(mypal))
-    
+
     numbat_phylo_heatmap <- nb$plot_phylo_heatmap(
         clone_bar = TRUE,
         p_min = 0.5,
         pal_clone = mypal
     )
-    
+
     return(numbat_phylo_heatmap)
 }
 
@@ -112,10 +126,10 @@ numbat_phylo_images <- dir_ls("output/numbat", glob = "*panel_2.png", recurse = 
 
 infercnv_plots <- purrr::map(seus, FeaturePlot, features = cnv_cols)
 
-make_numbat_cnv_plot <- 
+make_numbat_cnv_plot <-
     function(seu_path){
         seu <- readRDS(seu_path)
-        DimPlot(seu, group.by = "clone_opt") + 
+        DimPlot(seu, group.by = "clone_opt") +
             labs(title = seu_path)
     }
 
