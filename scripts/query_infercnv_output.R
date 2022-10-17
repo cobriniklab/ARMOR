@@ -34,6 +34,12 @@ make_seus_from_cellranger <- function(sample_path){
 
 }
 
+cellranger_paths <-
+    fs::dir_ls("output/cellranger/", glob = "*SRR*") %>%
+    purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
+
+seus <- purrr::map(cellranger_paths, make_seus_from_cellranger)
+
 append_infercnv_to_seu <- function(sample_id, normal_seu){
   # browser()
   seu_path <- path("output/seurat", paste0(path_file(sample_id), "_seu.rds"))
@@ -58,38 +64,11 @@ append_infercnv_to_seu <- function(sample_id, normal_seu){
 
   saveRDS(seu_w_cnv, seu_cnv_path)
 
-  return(seu_w_cnv)
+  return(seu_cnv_path)
 
 }
 
-cellranger_paths <-
-  fs::dir_ls("output/cellranger/", glob = "*SRR*") %>%
-  purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
+map(sample_ids, append_infercnv_to_seu, normal_seu)
 
-seus <- purrr::map(cellranger_paths, make_seus_from_cellranger)
 
-seu_paths <-
-  cellranger_paths <-
-  fs::dir_ls("output/seurat/", glob = "*SRR*") %>%
-  purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
-
-seus <- purrr::map(seu_paths, readRDS)
-
-marker_plots <- purrr::map(seus, ~plot_markers(.x, metavar = "gene_snn_res.0.2", marker_method = "presto", return_plotly = FALSE))
-
-umap_plots <- purrr::imap(seus, ~(DimPlot(.x, group.by = "gene_snn_res.0.2") + labs(title = .y)))
-
-library(patchwork)
-
-patchworks <- purrr::map2(umap_plots, marker_plots, ~.x + .y + plot_layout(widths = c(3,1)))
-
-pdf("results/patchworks.pdf", width = 10, height = 8)
-patchworks
-dev.off()
-
-# exclude code ------------------------------
-
-sample_ids <- c("SRR14800534", "SRR14800535", "SRR14800536", "SRR14800537", "SRR14800538", "SRR14800539", "SRR14800540", "SRR14800541", "SRR14800542", "SRR14800543")
-
-test0 <- append_infercnv_to_seu("SRR17960480", normal_seu)
 

@@ -168,7 +168,7 @@ list(cmds) %>% fwrite(script, sep = '\n')
 system(glue('chmod 777 {script}'))
 
 tryCatch({
-    system2(script, stdout = glue("{outdir}/phasing.log"))
+    system2(glue('sh {script}'), stdout = glue("{outdir}/phasing.log"))
 },
 warning = function(w){
     stop('Phasing failed')
@@ -198,9 +198,10 @@ for (sample in samples) {
     vcf_phased = lapply(1:22, function(chr) {
         vcf_file = glue('{outdir}/phasing/{label}_chr{chr}.phased.vcf.gz')
         if (file.exists(vcf_file)) {
-            fread(vcf_file) %>%
+            data.table::fread(vcf_file) %>%
                 rename(CHROM = `#CHROM`) %>%
-                mutate(CHROM = str_remove(CHROM, 'chr'))   
+                mutate(CHROM = str_remove(CHROM, 'chr')) %>%
+                identity()
         }
     }) %>%
         Reduce(rbind, .) %>%
