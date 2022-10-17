@@ -8,6 +8,35 @@ library(Seurat)
 library(seuratTools)
 library(infercnv)
 
+
+plot_numbat_genotype_distribution <- function(numbat_seu_path) {
+    # browser()
+    seu <- readRDS(numbat_seu_path)
+    
+    seu@meta.data$clone_opt <- factor(seu@meta.data$clone_opt)
+    
+    DimPlot(seu, group.by = "clone_opt")
+    
+    genotype_per_cluster <- janitor::tabyl(seu@meta.data, clone_opt, gene_snn_res.0.2) %>%
+        tidyr::pivot_longer(-c("clone_opt"), names_to = "cluster", values_to = "num_cell") %>%
+        dplyr::group_by(cluster) %>%
+        dplyr::mutate(percent_cell = num_cell/sum(num_cell))
+    
+    # percent cell  ------------------------------
+    genotype_distribution = ggplot(genotype_per_cluster, aes(percent_cell, cluster, fill = clone_opt)) +
+        geom_col() +
+        theme_bw() +
+        labs(title = numbat_seu_path, y = "Percent cells")
+    
+    clone_dimplot <- DimPlot(seu, group.by = "clone_opt")
+    
+    cluster_dimplot <- DimPlot(seu, group.by = "gene_snn_res.0.2")
+    
+    patchwork <- genotype_distribution / (clone_dimplot + cluster_dimplot)
+    
+}
+
+
 normal_reference_path <- "~/Homo_sapiens/infercnv/reference_mat.rds"
 
 normal_reference_mat <- readRDS(normal_reference_path)
@@ -18,11 +47,15 @@ cellranger_paths <-
   fs::dir_ls("output/cellranger/", glob = "*SRR*") %>%
   purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
-numbat_seu_paths <-
-  fs::dir_ls("output/seurat/", glob = "*SRR*numbat*") %>%
+infercnv_seu_paths <-
+  fs::dir_ls("output/seurat/", glob = "*SRR*cnv_seu.rds") %>%
   purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
-seus <- purrr::map(numbat_seu_paths, readRDS)
+numbat_seu_paths <-
+    fs::dir_ls("output/seurat/", glob = "*SRR*numbat_seu.rds") %>%
+    purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
+
+seus <- purrr::map(infercnv_seu_paths, readRDS)
 
 cnv_cols <- c("proportion_dupli_1", "proportion_dupli_2", "proportion_dupli_6", "proportion_loss_16")
 
@@ -67,9 +100,11 @@ make_phylo_heatmap <- function(numbat_dir){
     return(numbat_phylo_heatmap)
 }
 
-numbat_dirs = path("output/numbat", str_extract(path_file(numbat_seu_paths), "SRR[A-Z]*[0-9]*"))
+numbat_dirs = path("output/numbat", str_extract(path_file(infercnv_seu_paths), "SRR[A-Z]*[0-9]*"))
 
-phylo_heatmaps <- map(numbat_dirs, make_phylo_heatmap)
+possible_phylo <- purrr::possibly(make_phylo_heatmap, NA)
+
+phylo_heatmaps <- map(numbat_dirs, possible_phylo)
 
 numbat_phylo_images <- dir_ls("output/numbat", glob = "*panel_2.png", recurse = TRUE) %>%
     purrr::map(read_image_as_plot) %>%
@@ -77,7 +112,29 @@ numbat_phylo_images <- dir_ls("output/numbat", glob = "*panel_2.png", recurse = 
 
 infercnv_plots <- purrr::map(seus, FeaturePlot, features = cnv_cols)
 
-numbat_cnv_plots <- purrr::map(seus, DimPlot, group.by = "clone_opt")
+make_numbat_cnv_plot <- 
+    function(seu_path){
+        seu <- readRDS(seu_path)
+        DimPlot(seu, group.by = "clone_opt") + 
+            labs(title = seu_path)
+    }
+
+numbat_cnv_plots <- purrr::map(numbat_seu_paths, make_numbat_cnv_plot)
+
+numbat_clone_distributions <- purrr::map(numbat_seu_paths, plot_numbat_genotype_distribution)
+
+
+pdf("results/numbat_clone_patchworks.pdf")
+numbat_clone_distributions
+dev.off()
+
+test0 <- plot_numbat_genotype_distribution(numbat_seu_paths[[1]])
+
+
+pdf("results/numbat_cnv_plots.pdf")
+numbat_cnv_plots0
+dev.off()
+
 
 marker_plots <- purrr::map(seus, ~plot_markers(.x, metavar = "gene_snn_res.0.2", marker_method = "presto", return_plotly = FALSE))
 
@@ -94,6 +151,6 @@ assemble_cnv_patchwork <- function(umap, markers, cnv_image, cnv_plot){
 patchworks <- purrr::pmap(list(umap_plots, marker_plots, infercnv_images, infercnv_plots), assemble_cnv_patchwork)
 
 
-pdf("results/patchworks.pdf", width = 14, height = 14)
+pdf("results/patchworks2.pdf", width = 14, height = 14)
 patchworks
 dev.off()

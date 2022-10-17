@@ -42,8 +42,8 @@ normal_seu <- Seurat::CreateSeuratObject(normal_reference_mat) %>%
 clone_post_files <- dir_ls("output/numbat", glob = "*clone_post_2.tsv", recurse = TRUE)
 
 append_numbat_to_seu <- function(clone_post_file){
-    # browser()
-    seu_cnv_path <- path("output/seurat", paste0(path_file(path_dir(clone_post_file)), "_cnv_seu.rds"))
+    browser()
+    seu_cnv_path <- path("output/seurat", paste0(path_file(path_dir(clone_post_file)), "_seu.rds"))
     
     seu <- readRDS(seu_cnv_path)
     
@@ -53,7 +53,7 @@ append_numbat_to_seu <- function(clone_post_file){
     
     seu0 <- Seurat::AddMetaData(seu, clone_post)
     
-    numbat_seu_path <- str_replace(seu_cnv_path, "_cnv_seu.rds", "_infercnv_numbat_seu.rds")
+    numbat_seu_path <- str_replace(seu_cnv_path, "_seu.rds", "_infercnv_numbat_seu.rds")
     
     saveRDS(seu0, numbat_seu_path)
     
@@ -61,4 +61,4 @@ append_numbat_to_seu <- function(clone_post_file){
     
 }
 
-map(clone_post_files[2:5], append_numbat_to_seu)
+map(clone_post_files, append_numbat_to_seu)
