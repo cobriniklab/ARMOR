@@ -965,7 +965,8 @@ rule numbat:
 		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
 		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
-		outputdir + "numbat/{sample}/done.txt"
+		outputdir + "numbat/{sample}/done.txt",
+		outputdir + "numbat/{sample}/bulk_clones_final.png"
 	log:
 		outputdir + "logs/numbat_{sample}.log"
 	benchmark:
