@@ -86,9 +86,15 @@ infercnv_images <- dir_ls("results/infercnv", glob = "*.png") %>%
 numbat_dir <- "results/numbat"
 dir_create(numbat_dir)
 
-numbat_image_paths <- dir_ls("output/numbat", regexp = "\\/SRR[0-9].*\\/panel_2.png", recurse = TRUE)
+numbat_image_paths <- dir_ls("output/numbat", regexp = "\\/SRR[0-9]*\\/panel_2.png", recurse = TRUE)
 
 new_numbat_image_paths <- path(numbat_dir, paste0(path_file(path_dir(numbat_image_paths)), "_numbat.png"))
+
+numbat_image_paths <- dir_ls("output/numbat", regexp = "\\/SRR[0-9]*\\/bulk_clones_final.png", recurse = TRUE)
+
+new_numbat_image_paths <- path(numbat_dir, paste0(path_file(path_dir(numbat_image_paths)), "_bulk_clones_numbat.png"))
+
+
 
 map2(numbat_image_paths, new_numbat_image_paths, fs::file_copy)
 
