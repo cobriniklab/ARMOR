@@ -61,70 +61,70 @@ for (sample in samples) {
 cmds = c()
 
 if (bulk) {
-    
+
     for (i in 1:n_samples) {
-        
+
         bam_file = glue('{outdir}/pileup/{sample}/bam_path.tsv')
         sample_file = glue('{outdir}/pileup/{sample}/sample.tsv')
-        
+
         fwrite(list(bams[i]), bam_file)
         fwrite(list(samples[i]), sample_file)
-        
+
         cmd = glue(
-            'cellsnp-lite', 
+            'cellsnp-lite',
             '-S {bam_file}',
             '-i {sample_file}',
             '-O {outdir}/pileup/{samples[i]}',
-            '-R {snpvcf}', 
+            '-R {snpvcf}',
             '-p {ncores}',
             '--minMAF 0',
             '--minCOUNT 2',
             '--UMItag None',
             '--cellTAG None',
             .sep = ' ')
-        
+
         cmds = c(cmds, cmd)
-        
+
     }
-    
+
 } else if (smartseq) {
-    
+
     cmd = glue(
-        'cellsnp-lite', 
+        'cellsnp-lite',
         '-S {bams}',
         '-i {barcodes}',
         '-O {outdir}/pileup/{samples}',
-        '-R {snpvcf}', 
+        '-R {snpvcf}',
         '-p {ncores}',
         '--minMAF 0',
         '--minCOUNT 2',
         '--UMItag None',
         '--cellTAG None',
         .sep = ' ')
-    
+
     cmds = c(cmd)
-    
+
 } else {
-    
+
     for (i in 1:n_samples) {
-        
+
         cmd = glue(
-            'cellsnp-lite', 
+            'cellsnp-lite',
             '-s {bams[i]}',
             '-b {barcodes[i]}',
             '-O {outdir}/pileup/{samples[i]}',
-            '-R {snpvcf}', 
+            '-R {snpvcf}',
             '-p {ncores}',
             '--minMAF 0',
             '--minCOUNT 2',
             '--UMItag {UMItag}',
             '--cellTAG {cellTAG}',
             .sep = ' ')
-        
+
         cmds = c(cmds, cmd)
-        
+
     }
-    
+
 }
 
 cat('Running pileup\n')
@@ -150,11 +150,11 @@ numbat:::genotype(label, samples, vcfs, glue('{outdir}/phasing'))
 
 ## phasing
 eagle_cmd = function(chr) {
-    paste(eagle, 
-          glue('--numThreads {ncores}'), 
-          glue('--vcfTarget {outdir}/phasing/{label}_chr{chr}.vcf.gz'), 
-          glue('--vcfRef {paneldir}/chr{chr}.genotypes.bcf'), 
-          glue('--geneticMapFile={gmap}'), 
+    paste(eagle,
+          glue('--numThreads {ncores}'),
+          glue('--vcfTarget {outdir}/phasing/{label}_chr{chr}.vcf.gz'),
+          glue('--vcfRef {paneldir}/chr{chr}.genotypes.bcf'),
+          glue('--geneticMapFile={gmap}'),
           glue('--outPrefix {outdir}/phasing/{label}_chr{chr}.phased'),
           sep = ' ')
 }
@@ -168,10 +168,10 @@ list(cmds) %>% fwrite(script, sep = '\n')
 system(glue('chmod 777 {script}'))
 
 tryCatch({
-    system2(glue('sh {script}'), stdout = glue("{outdir}/phasing.log"))
+  system(glue('sh {script}'), intern = TRUE)
 },
 warning = function(w){
-    stop('Phasing failed')
+  stop('Phasing failed')
 })
 
 ## Generate allele count dataframe
@@ -183,7 +183,7 @@ if (genome == 'hg19') {
     gtf = gtf_hg38
 }
 
-genetic_map = fread(gmap) %>% 
+genetic_map = fread(gmap) %>%
     setNames(c('CHROM', 'POS', 'rate', 'cM')) %>%
     group_by(CHROM) %>%
     mutate(
@@ -193,7 +193,7 @@ genetic_map = fread(gmap) %>%
     ungroup()
 
 for (sample in samples) {
-    
+
     # read in phased VCF
     vcf_phased = lapply(1:22, function(chr) {
         vcf_file = glue('{outdir}/phasing/{label}_chr{chr}.phased.vcf.gz')
@@ -206,18 +206,18 @@ for (sample in samples) {
     }) %>%
         Reduce(rbind, .) %>%
         mutate(CHROM = factor(CHROM, unique(CHROM)))
-    
+
     pu_dir = glue('{outdir}/pileup/{sample}')
-    
+
     # pileup VCF
     vcf_pu = fread(glue('{pu_dir}/cellSNP.base.vcf')) %>% rename(CHROM = `#CHROM`)
-    
+
     # count matrices
     AD = readMM(glue('{pu_dir}/cellSNP.tag.AD.mtx'))
     DP = readMM(glue('{pu_dir}/cellSNP.tag.DP.mtx'))
-    
+
     cell_barcodes = fread(glue('{pu_dir}/cellSNP.samples.tsv'), header = F) %>% pull(V1)
-    
+
     df = numbat:::preprocess_allele(
         sample = label,
         vcf_pu = vcf_pu,
@@ -229,7 +229,7 @@ for (sample in samples) {
         gmap = genetic_map
     ) %>%
         filter(GT %in% c('1|0', '0|1'))
-    
+
     fwrite(df, glue('{outdir}/{sample}_allele_counts.tsv.gz'), sep = '\t')
-    
+
 }
