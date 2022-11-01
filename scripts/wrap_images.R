@@ -54,7 +54,7 @@ numbat_seu_paths <-
     fs::dir_ls("output/seurat/", glob = "*SRR*numbat_seu.rds") %>%
     purrr::set_names(str_extract(path_file(.), "SRR[0-9]*"))
 
-seus <- purrr::map(infercnv_seu_paths, readRDS)
+seus <- purrr::map(numbat_seu_paths, readRDS)
 
 cnv_cols <- c("proportion_dupli_1", "proportion_dupli_2", "proportion_dupli_6", "proportion_loss_16")
 
@@ -138,13 +138,13 @@ make_numbat_cnv_plot <-
         DimPlot(seu, group.by = "clone_opt") +
             labs(title = seu_path)
     }
-
+≥
 numbat_cnv_plots <- purrr::map(numbat_seu_paths, make_numbat_cnv_plot)
 
 numbat_clone_distributions <- purrr::map(numbat_seu_paths, plot_numbat_genotype_distribution)
 
 
-pdf("results/numbat_clone_patchworks.pdf")
+pdf("results/numbat_clone_patchworks2.pdf")
 numbat_clone_distributions
 dev.off()
 
