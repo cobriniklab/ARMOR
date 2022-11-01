@@ -168,10 +168,10 @@ list(cmds) %>% fwrite(script, sep = '\n')
 system(glue('chmod 777 {script}'))
 
 tryCatch({
-    system2(glue('sh {script}'), stdout = glue("{outdir}/phasing.log"))
+	system(glue('sh {script}'), intern = TRUE)
 },
 warning = function(w){
-    stop('Phasing failed')
+	stop('Phasing failed')
 })
 
 ## Generate allele count dataframe

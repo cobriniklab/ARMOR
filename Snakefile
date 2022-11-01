@@ -966,7 +966,7 @@ rule numbat:
 		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
 		outputdir + "numbat/{sample}/done.txt",
-		outputdir + "numbat/{sample}/bulk_clones_final.png"
+		outputdir + "numbat/{sample}/{sample}_numbat.rds"
 	log:
 		outputdir + "logs/numbat_{sample}.log"
 	benchmark:
@@ -981,11 +981,12 @@ rule numbat:
 		read_prop = config["read_prop"],
 		tau = config["tau"],
 		numbat_t = config["numbat_t"],
+		cell_ceiling = config["cell_ceiling"],
 		prof= outputdir + "numbat/{sample}/log.prof",
 		normal_reference_mat = config["normal_reference_mat"],
 		script = "scripts/run_numbat.R"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
 
 rule pagoda_prep:
 	input:
@@ -1026,7 +1027,7 @@ rule numbat_report:
 	shell:
 		'''{Rbin} CMD BATCH --no-restore --no-save "--args rmarkdown_file='{params.rmarkdown_file}' clone_file='{input.clone_file}' report='{output.report}' prepped_pagoda='{input.prepped_pagoda}' numbat_dir='{params.numbat_dir}'" {input.script} {log}'''
 
-rule run_infercnv:
+rule infercnv:
 	input:
 		script = "scripts/run_infercnv.R",
 		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"

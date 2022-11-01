@@ -142,6 +142,7 @@ max_iter: 2
 read_prop: 1
 tau: 0.3
 numbat_t: 1e-5
+cell_ceiling: 1e4
 
 ## infercnv
 normal_reference_mat: /dataVolume/storage/Homo_sapiens/infercnv/reference_mat.rds   
