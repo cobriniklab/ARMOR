@@ -118,8 +118,9 @@ def cellranger_output(wildcards):
 
 def numbat_output(wildcards):
   input = []
+  input.extend(expand(outputdir + "numbat/{sample}_allele_counts.tsv.gz", sample = samples.name[samples.type == 'PE'].values.tolist()))
   input.extend(expand(outputdir + "numbat/{sample}/done.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
-  # input.extend(expand(outputdir + "numbat/{sample}/{sample}_report.html", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  input.extend(expand(outputdir + "numbat/{sample}_numbat.rds", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
  
 def infercnv_output(wildcards):
@@ -934,7 +935,7 @@ rule pileup_and_phasing:
 		bam = outputdir + "cellranger/{sample}/outs/possorted_genome_bam.bam",
 		barcodes = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/barcodes.tsv.gz"
 	output:
-		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
+		allele_table = outputdir + "numbat/{sample}_allele_counts.tsv.gz",
 		phased_output = outputdir + "numbat/{sample}/phasing/{sample}_chr22.phased.vcf.gz"
 	log:
 		outputdir + "logs/pileup_and_phase_{sample}.log"
@@ -948,6 +949,7 @@ rule pileup_and_phasing:
 		paneldir = config["paneldir"],
 		outdir = outputdir + "numbat/{sample}",
 		script = "scripts/pileup_and_phase.R",
+		intermediate_allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz"
 	shell:
 		'''Rscript {params.script} \
 		--label {wildcards.sample} \
@@ -958,15 +960,15 @@ rule pileup_and_phasing:
 		--gmap {params.gmap} \
 		--snpvcf {params.snpvcf} \
 		--paneldir {params.paneldir} \
-		--ncores {threads} > {log} 2>&1'''
+		--ncores {threads} > {log} 2>&1;
+		cp {params.intermediate_allele_table} {output.allele_table}'''
 
 rule numbat:
 	input:
 		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
 		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
 	output:
-		outputdir + "numbat/{sample}/done.txt",
-		outputdir + "numbat/{sample}/{sample}_numbat.rds"
+		outputdir + "numbat/{sample}/done.txt"
 	log:
 		outputdir + "logs/numbat_{sample}.log"
 	benchmark:
@@ -987,6 +989,22 @@ rule numbat:
 		script = "scripts/run_numbat.R"
 	shell:
 		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+
+rule numbat_rds:
+	input:
+		numbat_dir = outputdir + "numbat/{sample}/"
+	output:
+		outputdir + "numbat/{sample}_numbat.rds"
+	log:
+		outputdir + "logs/numbat_rds_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/numbat_rds_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		script = "scripts/process_numbat_rds.R"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args numbat_dir='{input.numbat_dir}'" {params.script} {log}'''
 
 rule pagoda_prep:
 	input:
