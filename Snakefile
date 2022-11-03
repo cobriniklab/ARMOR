@@ -122,6 +122,11 @@ def numbat_output(wildcards):
   input.extend(expand(outputdir + "numbat/{sample}/done.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
   input.extend(expand(outputdir + "numbat/{sample}_numbat.rds", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
+  
+def seurat_output(wildcards):
+  input = []
+  input.extend(expand(outputdir + "seurat/{sample}_seu.rds", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  return input
  
 def infercnv_output(wildcards):
   input = []
@@ -138,7 +143,8 @@ rule all:
 		# outputdir + "MultiQC/multiqc_report.html",
 		cellranger_output,
 		numbat_output,
-		infercnv_output
+		infercnv_output,
+		seurat_output,
 		# bigwigoutput,
 		# outputdir + "seurat/unfiltered_seu.rds",
 		# outputdir + "kallisto/adata.h5ad",
@@ -963,10 +969,28 @@ rule pileup_and_phasing:
 		--ncores {threads} > {log} 2>&1;
 		cp {params.intermediate_allele_table} {output.allele_table}'''
 
+rule seurat:
+	input:
+		matrix_dir = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/"
+	output:
+		seu_path = outputdir + "seurat/{sample}_seu.rds",
+	log:
+		outputdir + "logs/seurat_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/seurat_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		script = "scripts/process_seurat.R",
+		celltype_ref = config["celltype_ref"]
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args matrix_dir='{input.matrix_dir}' seu_path='{output.seu_path}' celltype_ref='{params.celltype_ref}'" {params.script} {log}'''
+
 rule numbat:
 	input:
 		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
-		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz"
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz",
+		seu_path = outputdir + "seurat/{sample}_seu.rds"
 	output:
 		outputdir + "numbat/{sample}/done.txt"
 	log:
@@ -988,7 +1012,8 @@ rule numbat:
 		normal_reference_mat = config["normal_reference_mat"],
 		script = "scripts/run_numbat.R"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_path='{input.seu_path}' normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+
 
 rule numbat_rds:
 	input:
