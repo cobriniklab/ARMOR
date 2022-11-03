@@ -15,6 +15,6 @@ conflicted::conflict_prefer("rowSums", "Matrix")
 
 nb = Numbat$new(out_dir = numbat_dir)
 
-nb_path = paste0(numbat_dir, "_numbat.rds")
+nb_path = paste0(fs::path(numbat_dir), "_numbat.rds")
 
 saveRDS(nb, nb_path)
