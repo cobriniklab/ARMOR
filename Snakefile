@@ -1009,10 +1009,10 @@ rule numbat:
 		numbat_t = config["numbat_t"],
 		cell_ceiling = config["cell_ceiling"],
 		prof= outputdir + "numbat/{sample}/log.prof",
-		normal_reference_mat = config["normal_reference_mat"],
+		ref_path = config["ref_path"],
 		script = "scripts/run_numbat.R"
 	shell:
-		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_path='{input.seu_path}' normal_reference_mat='{params.normal_reference_mat}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_path='{input.seu_path}' ref_path='{params.ref_path}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
 
 
 rule numbat_rds:

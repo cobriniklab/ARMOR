@@ -41,28 +41,29 @@ allele_df = data.table::fread(allele_df) %>%
 # assemble a normal reference from non-RB cell types ------------------------------
 bad_cell_types = c("RPCs", "Late RPCs", c("Red Blood Cells", "Microglia", "Muller Glia", "RPE", "Horizontal Cells", "Rod Bipolar Cells", "Pericytes", "Bipolar Cells", "Astrocytes", "Endothelial", "Schwann", "Fibroblasts"))
 
-myseu <- readRDS(seu_path)
+# myseu <- readRDS(seu_path)
+# 
+# num_out_cells <- sum(myseu$type %in% bad_cell_types)
 
-num_out_cells <- sum(myseu$type %in% bad_cell_types)
+# if(num_out_cells > 100){
+# 	normal_seu = myseu[,myseu$type %in% bad_cell_types]
+# 	
+# 	normal_reference_mat <- 
+# 		normal_seu %>% 
+# 		GetAssayData(slot = "counts")
+# 	
+# 	normal_cell_annot <-
+# 		normal_seu@meta.data[c("type")] %>% 
+# 		tibble::rownames_to_column("cell") %>% 
+# 		dplyr::rename(group = type) %>% 
+# 		identity()
+# 	
+# 	ref_internal = numbat::aggregate_counts(normal_reference_mat, normal_cell_annot)
+# } else {
+# 	ref_internal <- readRDS(ref_path)
+# }
 
-if(num_out_cells > 100){
-	normal_seu = myseu[,myseu$type %in% bad_cell_types]
-	
-	normal_reference_mat <- 
-		normal_seu %>% 
-		GetAssayData(slot = "counts")
-	
-	normal_cell_annot <-
-		normal_seu@meta.data[c("type")] %>% 
-		tibble::rownames_to_column("cell") %>% 
-		dplyr::rename(group = type) %>% 
-		identity()
-	
-	ref_internal = numbat::aggregate_counts(normal_reference_mat, normal_cell_annot)
-} else {
-	ref_path <- "~/Homo_sapiens/numbat/collin_ref.rds"
-	ref_internal <- readRDS(ref_path)
-}
+ref_internal <- readRDS(ref_path)
 
 bulk = numbat:::get_bulk(
 	count_mat = count_mat,
