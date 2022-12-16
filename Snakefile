@@ -121,6 +121,8 @@ def numbat_output(wildcards):
   input.extend(expand(outputdir + "numbat/{sample}_allele_counts.tsv.gz", sample = samples.name[samples.type == 'PE'].values.tolist()))
   input.extend(expand(outputdir + "numbat/{sample}/done.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
   input.extend(expand(outputdir + "numbat/{sample}_numbat.rds", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  input.extend(expand(outputdir + "numbat_standard/{sample}/done.txt", sample = samples.name[samples.type == 'PE'].values.tolist()))
+  input.extend(expand(outputdir + "numbat_standard/{sample}_numbat_standard.rds", sample = samples.name[samples.type == 'PE'].values.tolist()))
   return input
   
 def seurat_output(wildcards):
@@ -1014,7 +1016,6 @@ rule numbat:
 	shell:
 		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_path='{input.seu_path}' ref_path='{params.ref_path}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
 
-
 rule numbat_rds:
 	input:
 		numbat_dir = outputdir + "numbat/{sample}/"
@@ -1024,6 +1025,51 @@ rule numbat_rds:
 		outputdir + "logs/numbat_rds_{sample}.log"
 	benchmark:
 		outputdir + "benchmarks/numbat_rds_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		script = "scripts/process_numbat_rds.R"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args numbat_dir='{input.numbat_dir}'" {params.script} {log}'''
+		
+rule numbat_standard:
+	input:
+		allele_table = outputdir + "numbat/{sample}/{sample}_allele_counts.tsv.gz",
+		matrix_file = outputdir + "cellranger/{sample}/outs/filtered_feature_bc_matrix/matrix.mtx.gz",
+		seu_path = outputdir + "seurat/{sample}_seu.rds"
+	output:
+		done_file = outputdir + "numbat_standard/{sample}/done.txt",
+		out_dir = outputdir + "numbat_standard/{sample}"
+	log:
+		outputdir + "logs/numbat_standard_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/numbat_standard_{sample}.txt"
+	threads:
+		config["ncores"]
+	params:
+		numbatdir = outputdir + "numbat_standard/",
+		max_entropy = config["max_entropy"],
+		min_LLR = config["min_LLR"],
+		max_iter = config["max_iter"],
+		read_prop = config["read_prop"],
+		tau = config["tau"],
+		numbat_t = config["numbat_t"],
+		cell_ceiling = config["cell_ceiling"],
+		prof= outputdir + "numbat_standard/{sample}/log.prof",
+		ref_path = config["standard_ref_path"],
+		script = "scripts/run_numbat.R"
+	shell:
+		'''{Rbin} CMD BATCH --no-restore --no-save "--args seu_path='{input.seu_path}' ref_path='{params.ref_path}' tau='{params.tau}' read_prop='{params.read_prop}' max_iter='{params.max_iter}' min_LLR='{params.min_LLR}' t='{params.numbat_t}' cell_ceiling='{params.cell_ceiling}' max_entropy='{params.max_entropy}' allele_df='{input.allele_table}' matrix_file='{input.matrix_file}' out_dir='{params.numbatdir}/{wildcards.sample}' ncores='{threads}' rprof_out='{params.prof}'" {params.script} {log}'''
+
+rule numbat_standard_rds:
+	input:
+		numbat_dir = outputdir + "numbat_standard/{sample}"
+	output:
+		outputdir + "numbat_standard/{sample}_numbat_standard.rds"
+	log:
+		outputdir + "logs/numbat_standard_rds_{sample}.log"
+	benchmark:
+		outputdir + "benchmarks/numbat_standard_rds_{sample}.txt"
 	threads:
 		config["ncores"]
 	params:

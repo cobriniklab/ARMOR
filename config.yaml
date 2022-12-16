@@ -143,6 +143,8 @@ read_prop: 1
 tau: 0.3
 numbat_t: 1e-5
 cell_ceiling: 1e4
+ref_path: /dataVolume/storage/Homo_sapiens/numbat/wu_ref.rds
+standard_ref_path: /dataVolume/storage/Homo_sapiens/numbat/sridhar_ref.rds
 
 ## seurat
 celltype_ref: /dataVolume/storage/Homo_sapiens/numbat/plae_ref.rds
