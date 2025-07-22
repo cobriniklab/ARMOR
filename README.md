@@ -12,3 +12,7 @@
 # to view all of the rules for a snakemake pipeline:
 
 `snakemake --rulegraph | dot -Tpdf > rulegraph.pdf`
+
+# Citation
+This ARMOR pipeline was used in Shayler et al. (2025) which can be accessed at: https://elifesciences.org/reviewed-preprints/101918v2#c65
+
